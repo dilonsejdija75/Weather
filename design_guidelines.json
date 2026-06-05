@@ -1,0 +1,110 @@
+{
+  "theme_and_archetype": {
+    "domain": "Weather & Mapping",
+    "theme": "Dark",
+    "archetype": "Archetype 4 (Swiss & High-Contrast) - The Command Center Variant",
+    "reasoning": "Hyper-local map weather tools require precision, authority, and high data density. Dark mode allows map overlays (clouds, precipitation, radar) to glow and stand out without blinding the user. It evokes an aviation command center or tactical radar interface."
+  },
+  "typography": {
+    "fonts": {
+      "headings": "Chivo",
+      "data_metrics": "JetBrains Mono",
+      "body": "IBM Plex Sans"
+    },
+    "scale": {
+      "h1": "text-4xl tracking-tighter uppercase",
+      "h2": "text-2xl tracking-tight uppercase",
+      "h3": "text-xl tracking-tight",
+      "data_large": "text-5xl font-mono tracking-tighter",
+      "body": "text-sm",
+      "overline_label": "text-[10px] tracking-[0.2em] uppercase font-mono text-zinc-400"
+    },
+    "rules": [
+      "No Inter or generic default fonts.",
+      "Data metrics (temperature, coordinates, wind speed) MUST use JetBrains Mono to enforce tabular alignment.",
+      "Labels must be overlines (uppercase + wide spacing)."
+    ]
+  },
+  "colors": {
+    "palette": {
+      "background_base": "#050505",
+      "surface_glass": "rgba(10, 10, 10, 0.75)",
+      "border": "rgba(255, 255, 255, 0.12)",
+      "text_primary": "#FFFFFF",
+      "text_secondary": "#A1A1AA",
+      "accent_primary": "#FFFFFF",
+      "accent_technical": "#E2FF3B",
+      "weather_rain": "#00FFFF",
+      "weather_alert": "#FF3333"
+    },
+    "rules": [
+      "The Leaflet Map itself acts as the primary background. It MUST use a dark tile style (e.g., CartoDB Dark Matter).",
+      "UI elements must float above the map using 'Crystal Glass' (backdrop-blur-xl + semi-transparent dark surface).",
+      "Do NOT use pure black (#000000) for surfaces; use #050505 or tint with map colors.",
+      "Hover states must be explicit, usually a sharp border color change to white."
+    ]
+  },
+  "layout_and_spacing": {
+    "philosophy": "The Control Room Grid",
+    "structure": [
+      "Full-screen absolute Leaflet Map (z-index 0).",
+      "Floating UI Panels placed optimally around the edges (z-index 40/50).",
+      "Weather Info Card: A dense Bento Grid of metrics (Temp, Humidity, Wind).",
+      "Search Bar: Floating, top-left."
+    ],
+    "spacing": {
+      "padding": "Use p-4 or p-6 for panels. Internal grid gaps should be tight (gap-2 to gap-4) for data density.",
+      "corners": "Technical aesthetic: use rounded-none (sharp) or rounded-sm. Avoid pill-shapes or large border-radii."
+    }
+  },
+  "surfaces": {
+    "panels": {
+      "type": "Glassmorphism (Technical Crystal)",
+      "classes": "backdrop-blur-2xl bg-black/75 border border-white/10 shadow-2xl"
+    },
+    "buttons": {
+      "type": "Solid High-Contrast",
+      "classes": "bg-white text-black hover:bg-zinc-200 uppercase font-mono tracking-wider text-xs px-4 py-2"
+    },
+    "toggles": {
+      "type": "Outline/Radar",
+      "classes": "border border-white/20 text-white/70 hover:text-white hover:border-white data-[state=on]:bg-white data-[state=on]:text-black"
+    }
+  },
+  "components": {
+    "search_bar": "Floating input over map. Use Shadcn Command or standard Input. Clear glass background, glowing white border on focus.",
+    "weather_card": "Appears on map click. Divided into 'Hero Metric' (Temp + Icon) taking col-span-2, and 'Secondary Metrics' (Wind, Pressure, Humidity) in smaller cells.",
+    "layer_toggles": "A vertical or horizontal group of buttons to toggle Cloud, Precip, Temp overlays.",
+    "saved_locations": "Slide-out sidebar (Shadcn Sheet) or a collapsible list floating on the right side."
+  },
+  "motion": {
+    "transitions": "Sharp and quick. 0.15s ease-out. No bouncy springs. It should feel like a highly responsive terminal.",
+    "interactions": "Hovering actionable data brightens text to pure white. Clicking sends a subtle visual pulse (scale 0.98)."
+  },
+  "icons_and_assets": {
+    "icon_library": "@phosphor-icons/react",
+    "icon_style": "Duotone or Regular weight. Highly legible.",
+    "rules": [
+      "Use explicit data-testid for all interactive elements (e.g., 'search-input', 'map-overlay-toggle-clouds').",
+      "Map overlay tiles come from OpenWeatherMap."
+    ]
+  },
+  "media": {
+    "empty_state_texture": {
+      "url": "https://images.unsplash.com/photo-1541816139614-b1c0b6a13f5b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHwxfHxkYXJrJTIwd2VhdGhlciUyMHJhZGFyJTIwdGV4dHVyZXxlbnwwfHx8fDE3ODA2MjAxOTB8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Abstract dark radar/static texture. Use as a subtle background pattern for the saved locations empty state or loading screens (opacity 10-20%)."
+    },
+    "splash_background": {
+      "url": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODh8MHwxfHNlYXJjaHwxfHxzYXRlbGxpdGUlMjBlYXJ0aCUyMG5pZ2h0fGVufDB8fHx8MTc4MDYyMDE5MHww&ixlib=rb-4.1.0&q=85",
+      "description": "Earth satellite view. Use as a fallback background before Leaflet map initializes, or in an onboarding modal."
+    }
+  },
+  "instructions_to_main_agent": [
+    "Ensure Leaflet Map is the foundational z-0 layer and styled with a dark tile provider (like CartoDB Dark Matter).",
+    "All floating UI must have high contrast and clear borders (border-white/10) to distinguish from the map.",
+    "Use JetBrains Mono for all numeric weather data and Chivo for headers.",
+    "Implement clear visual hierarchy in the weather card: Temp is massive (text-5xl+), secondary stats are smaller with uppercase mono labels.",
+    "Install and use @phosphor-icons/react for weather iconography.",
+    "Do NOT use pure white (#FFF) as a large background area. The UI is Dark Mode / Command Center style."
+  ]
+}
