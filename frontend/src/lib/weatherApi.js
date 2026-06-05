@@ -15,6 +15,13 @@ export async function fetchForecast(lat, lon, units = "metric") {
   return data;
 }
 
+export async function fetchFullForecast(lat, lon, units = "metric") {
+  // Open-Meteo via backend: 24 hourly + 7 daily
+  const u = units === "imperial" ? "imperial" : "metric";
+  const { data } = await api.get("/forecast/full", { params: { lat, lon, units: u } });
+  return data;
+}
+
 export async function reverseGeocode(lat, lon) {
   const { data } = await api.get("/geocode/reverse", { params: { lat, lon, limit: 1 } });
   return Array.isArray(data) && data.length ? data[0] : null;

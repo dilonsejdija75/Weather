@@ -14,6 +14,7 @@ load_dotenv(ROOT_DIR / '.env')
 OWM_API_KEY = os.environ['OWM_API_KEY']
 OWM_BASE = "https://api.openweathermap.org"
 OWM_TILE_BASE = "https://tile.openweathermap.org/map"
+OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast"
 
 # Simple in-memory cache: weather (5 min), geocode (1 hr), tiles (30 min)
 weather_cache = TTLCache(maxsize=500, ttl=300)
@@ -153,6 +154,86 @@ async def search_geocode(
         raise HTTPException(status_code=503, detail=f"Upstream error: {e}")
     geocode_cache[key] = data
     return data
+
+
+@api_router.get("/forecast/full")
+async def get_full_forecast(
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+    units: str = Query("metric", pattern="^(metric|imperial)$"),
+):
+    """Hourly (next 24h) + Daily (next 7 days) forecast via Open-Meteo (no key)."""
+    key = f"ff:{round(lat, 3)}:{round(lon, 3)}:{units}"
+    if key in weather_cache:
+        return weather_cache[key]
+
+    temp_unit = "fahrenheit" if units == "imperial" else "celsius"
+    wind_unit = "mph" if units == "imperial" else "ms"
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "hourly": "temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m",
+        "daily": "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum",
+        "forecast_days": 7,
+        "forecast_hours": 24,
+        "timezone": "auto",
+        "temperature_unit": temp_unit,
+        "wind_speed_unit": wind_unit,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            r = await client.get(OPEN_METEO_BASE, params=params)
+        if r.status_code != 200:
+            raise HTTPException(status_code=r.status_code, detail="Open-Meteo fetch failed")
+        data = r.json()
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Upstream error: {e}")
+
+    hourly = data.get("hourly", {})
+    times = hourly.get("time", [])
+    temps = hourly.get("temperature_2m", [])
+    codes = hourly.get("weather_code", [])
+    hums = hourly.get("relative_humidity_2m", [])
+    winds = hourly.get("wind_speed_10m", [])
+    hourly_list = []
+    for i in range(min(24, len(times))):
+        hourly_list.append({
+            "time": times[i],
+            "temp": temps[i] if i < len(temps) else None,
+            "code": codes[i] if i < len(codes) else 0,
+            "humidity": hums[i] if i < len(hums) else None,
+            "wind": winds[i] if i < len(winds) else None,
+        })
+
+    daily = data.get("daily", {})
+    d_times = daily.get("time", [])
+    d_codes = daily.get("weather_code", [])
+    d_max = daily.get("temperature_2m_max", [])
+    d_min = daily.get("temperature_2m_min", [])
+    d_sunrise = daily.get("sunrise", [])
+    d_sunset = daily.get("sunset", [])
+    d_precip = daily.get("precipitation_sum", [])
+    daily_list = []
+    for i in range(min(7, len(d_times))):
+        daily_list.append({
+            "date": d_times[i],
+            "code": d_codes[i] if i < len(d_codes) else 0,
+            "max": d_max[i] if i < len(d_max) else None,
+            "min": d_min[i] if i < len(d_min) else None,
+            "sunrise": d_sunrise[i] if i < len(d_sunrise) else None,
+            "sunset": d_sunset[i] if i < len(d_sunset) else None,
+            "precip": d_precip[i] if i < len(d_precip) else 0,
+        })
+
+    result = {
+        "hourly": hourly_list,
+        "daily": daily_list,
+        "timezone": data.get("timezone"),
+        "timezone_offset": data.get("utc_offset_seconds", 0),
+        "units": units,
+    }
+    weather_cache[key] = result
+    return result
 
 
 @api_router.get("/tiles/{layer}/{z}/{x}/{y}.png")
