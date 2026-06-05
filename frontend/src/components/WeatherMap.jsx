@@ -19,10 +19,11 @@ const OWM_STATIC = {
 // RainViewer config (free, no key) for ANIMATED radar (rain) + satellite (clouds)
 const RAINVIEWER_API = "https://api.rainviewer.com/public/weather-maps.json";
 
-export default function WeatherMap({ onClickPoint, marker, activeLayers, flyTo }) {
+export default function WeatherMap({ onClickPoint, marker, activeLayers, flyTo, theme = "dark" }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
+  const baseLayerRef = useRef(null);
   // overlayLayersRef[key] = { type: 'animated'|'static', layer, frames, idx }
   const overlayLayersRef = useRef({});
   const animTimerRef = useRef(null);
@@ -69,16 +70,19 @@ export default function WeatherMap({ onClickPoint, marker, activeLayers, flyTo }
       maxBoundsViscosity: 1.0,
     });
 
-    L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-      {
-        attribution:
-          '© <a href="https://www.openstreetmap.org/copyright">OSM</a> · © <a href="https://carto.com/attributions">CARTO</a> · Weather © OpenWeatherMap · Radar © RainViewer',
-        subdomains: "abcd",
-        maxZoom: 19,
-        noWrap: false,
-      }
-    ).addTo(map);
+    const baseUrl =
+      theme === "light"
+        ? "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+        : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+    const base = L.tileLayer(baseUrl, {
+      attribution:
+        '© <a href="https://www.openstreetmap.org/copyright">OSM</a> · © <a href="https://carto.com/attributions">CARTO</a> · Weather © OpenWeatherMap · Radar © RainViewer',
+      subdomains: "abcd",
+      maxZoom: 19,
+      noWrap: false,
+    });
+    base.addTo(map);
+    baseLayerRef.current = base;
 
     // Custom panes for animated overlays (so we can target via CSS)
     map.createPane("anim-rain");
@@ -139,6 +143,17 @@ export default function WeatherMap({ onClickPoint, marker, activeLayers, flyTo }
       duration: 0.9,
     });
   }, [flyTo]);
+
+  // Swap base tiles on theme change (no map rebuild)
+  useEffect(() => {
+    const base = baseLayerRef.current;
+    if (!base) return;
+    const url =
+      theme === "light"
+        ? "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+        : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+    base.setUrl(url);
+  }, [theme]);
 
   // Build RainViewer tile URL for a given frame
   const rvUrl = (host, path, color = 2) =>

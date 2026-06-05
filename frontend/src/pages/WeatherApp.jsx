@@ -8,8 +8,9 @@ import RainOverlay from "@/components/RainOverlay";
 import ForecastPanel from "@/components/ForecastPanel";
 import { fetchWeather, reverseGeocode, fetchFullForecast } from "@/lib/weatherApi";
 import { useSavedLocations } from "@/hooks/useSavedLocations";
+import { useTheme } from "@/hooks/useTheme";
 import {
-  BookmarkSimple, CrosshairSimple, Lightning, CaretDown, CaretUp,
+  BookmarkSimple, CrosshairSimple, Lightning, CaretDown, CaretUp, Sun, Moon,
 } from "@phosphor-icons/react";
 import { toast, Toaster } from "sonner";
 
@@ -31,6 +32,7 @@ export default function WeatherApp() {
   // Bottom panel can be collapsed on mobile to give more room to the map
   const [detailsOpen, setDetailsOpen] = useState(false);
   const { saved, add, remove, isSaved } = useSavedLocations();
+  const { theme, toggle: toggleTheme } = useTheme();
 
   const loadFor = useCallback(
     async ({ lat, lon, displayName, country }) => {
@@ -138,7 +140,7 @@ export default function WeatherApp() {
   );
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-[#050505] flex flex-col">
+    <div className="relative h-screen w-screen overflow-hidden flex flex-col" style={{ background: "var(--bg-base)" }}>
       {/* ============ TOP HALF: MAP ============ */}
       <section
         className="relative flex-shrink-0"
@@ -150,6 +152,7 @@ export default function WeatherApp() {
           marker={marker}
           activeLayers={activeLayers}
           flyTo={flyTo}
+          theme={theme}
         />
 
         <RainOverlay active={rainState.active} intensity={rainState.intensity} />
@@ -171,6 +174,18 @@ export default function WeatherApp() {
           </div>
 
           <div className="pointer-events-auto flex items-center gap-2">
+            <button
+              data-testid="theme-toggle"
+              data-theme-state={theme}
+              onClick={toggleTheme}
+              className="btn-radar p-2.5 flex items-center justify-center"
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              aria-label="Toggle theme"
+            >
+              {theme === "dark"
+                ? <Sun size={16} weight="bold" />
+                : <Moon size={16} weight="bold" />}
+            </button>
             <button
               data-testid="locate-me-btn"
               onClick={locateMe}
@@ -216,7 +231,8 @@ export default function WeatherApp() {
 
       {/* ============ BOTTOM HALF: FORECAST STACK ============ */}
       <section
-        className="flex-1 min-h-0 overflow-auto bg-[#050505] border-t border-white/10"
+        className="flex-1 min-h-0 overflow-auto border-t"
+        style={{ background: "var(--bg-base)", borderColor: "var(--border)" }}
         data-testid="forecast-section"
       >
         <div className="px-3 sm:px-6 py-4 sm:py-5 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-4 sm:gap-5">
@@ -283,13 +299,13 @@ export default function WeatherApp() {
       />
 
       <Toaster
-        theme="dark"
+        theme={theme}
         position="top-center"
         toastOptions={{
           style: {
-            background: "rgba(10,10,10,0.9)",
-            border: "1px solid rgba(255,255,255,0.12)",
-            color: "#fff",
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            color: "var(--text-primary)",
             fontFamily: "JetBrains Mono, monospace",
             fontSize: "12px",
             letterSpacing: "0.05em",

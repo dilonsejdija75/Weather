@@ -14,6 +14,30 @@
   --accent-tech: #e2ff3b;
   --weather-rain: #00ffff;
   --weather-alert: #ff3333;
+
+  --inactive-card-bg: rgba(0, 0, 0, 0.4);
+  --inactive-card-text: #ffffff;
+  --active-card-bg: #ffffff;
+  --active-card-text: #050505;
+  --active-strong-bg: #e2ff3b;
+  --active-strong-text: #050505;
+  --soft-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6);
+}
+
+:root[data-theme="light"] {
+  --bg-base: #f4f4f3;
+  --surface: rgba(255, 255, 255, 0.86);
+  --border: rgba(0, 0, 0, 0.12);
+  --text-primary: #0a0a0a;
+  --text-secondary: #525252;
+  /* Keep accent colors the same — lime works on both */
+  --inactive-card-bg: rgba(255, 255, 255, 0.78);
+  --inactive-card-text: #0a0a0a;
+  --active-card-bg: #0a0a0a;
+  --active-card-text: #ffffff;
+  --active-strong-bg: #0a0a0a;
+  --active-strong-text: #e2ff3b;
+  --soft-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.18);
 }
 
 html, body, #root {
@@ -25,6 +49,7 @@ html, body, #root {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
+  transition: background-color .25s ease-out, color .25s ease-out;
 }
 
 .font-display { font-family: 'Chivo', sans-serif; }
@@ -52,17 +77,19 @@ html, body, #root {
   font-size: 11px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  border: 1px solid rgba(255,255,255,0.18);
-  color: rgba(255,255,255,0.78);
-  background: rgba(255,255,255,0.02);
-  transition: color .15s ease-out, border-color .15s ease-out, background-color .15s ease-out, transform .1s ease-out;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  opacity: 0.85;
+  background: rgba(127,127,127,0.04);
+  transition: color .15s ease-out, border-color .15s ease-out, background-color .15s ease-out, transform .1s ease-out, opacity .15s ease-out;
 }
-.btn-radar:hover { color: #fff; border-color: #fff; }
+.btn-radar:hover { opacity: 1; border-color: var(--text-primary); }
 .btn-radar:active { transform: scale(0.98); }
 .btn-radar[data-state="on"] {
-  background: #fff;
-  color: #050505;
-  border-color: #fff;
+  background: var(--text-primary);
+  color: var(--bg-base);
+  border-color: var(--text-primary);
+  opacity: 1;
 }
 
 .btn-solid {
@@ -70,39 +97,39 @@ html, body, #root {
   font-size: 11px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  background: #fff;
-  color: #050505;
+  background: var(--text-primary);
+  color: var(--bg-base);
   transition: background-color .15s ease-out, transform .1s ease-out;
 }
-.btn-solid:hover { background: #e2ff3b; }
+.btn-solid:hover { background: #e2ff3b; color: #050505; }
 .btn-solid:active { transform: scale(0.98); }
 
 /* Leaflet overrides */
 .leaflet-container {
-  background: #050505 !important;
+  background: var(--bg-base) !important;
   font-family: 'JetBrains Mono', monospace;
   outline: none;
 }
 .leaflet-control-zoom a {
-  background: rgba(10,10,10,0.85) !important;
-  color: #fff !important;
-  border: 1px solid rgba(255,255,255,0.12) !important;
+  background: var(--surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border) !important;
   border-radius: 0 !important;
   backdrop-filter: blur(12px);
 }
 .leaflet-control-zoom a:hover {
-  background: #fff !important;
-  color: #050505 !important;
+  background: var(--text-primary) !important;
+  color: var(--bg-base) !important;
 }
 .leaflet-control-attribution {
-  background: rgba(0,0,0,0.6) !important;
-  color: rgba(255,255,255,0.5) !important;
+  background: var(--surface) !important;
+  color: var(--text-secondary) !important;
   font-family: 'JetBrains Mono', monospace !important;
   font-size: 9px !important;
   letter-spacing: 0.05em;
 }
 .leaflet-control-attribution a {
-  color: rgba(255,255,255,0.8) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Custom marker pulse */
@@ -146,8 +173,44 @@ html, body, #root {
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
+::-webkit-scrollbar-thumb { background: var(--border); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+/* ===== LIGHT THEME — override hardcoded Tailwind utility colors ===== */
+:root[data-theme="light"] .text-white { color: #0a0a0a !important; }
+:root[data-theme="light"] .text-white\/90 { color: rgba(10,10,10,0.9) !important; }
+:root[data-theme="light"] .text-white\/80 { color: rgba(10,10,10,0.8) !important; }
+:root[data-theme="light"] .text-white\/70 { color: rgba(10,10,10,0.7) !important; }
+:root[data-theme="light"] .text-white\/60 { color: rgba(10,10,10,0.6) !important; }
+:root[data-theme="light"] .text-white\/50 { color: rgba(10,10,10,0.5) !important; }
+:root[data-theme="light"] .text-white\/40 { color: rgba(10,10,10,0.4) !important; }
+:root[data-theme="light"] .text-white\/30 { color: rgba(10,10,10,0.3) !important; }
+:root[data-theme="light"] .text-white\/20 { color: rgba(10,10,10,0.2) !important; }
+:root[data-theme="light"] .placeholder\:text-white\/30::placeholder { color: rgba(10,10,10,0.45) !important; }
+
+:root[data-theme="light"] .bg-black\/40 { background-color: rgba(0,0,0,0.04) !important; }
+:root[data-theme="light"] .bg-black\/50 { background-color: rgba(0,0,0,0.45) !important; }
+:root[data-theme="light"] .bg-black\/60 { background-color: rgba(255,255,255,0.7) !important; }
+
+:root[data-theme="light"] .border-white\/5 { border-color: rgba(0,0,0,0.06) !important; }
+:root[data-theme="light"] .border-white\/10 { border-color: rgba(0,0,0,0.1) !important; }
+:root[data-theme="light"] .border-white\/40 { border-color: rgba(0,0,0,0.4) !important; }
+:root[data-theme="light"] .bg-white\/5:hover,
+:root[data-theme="light"] .hover\:bg-white\/5:hover { background-color: rgba(0,0,0,0.05) !important; }
+
+/* Active "today" / "now" cards invert on light theme */
+:root[data-theme="light"] [data-state="today"],
+:root[data-theme="light"] [data-state="now"] {
+  background-color: #0a0a0a !important;
+  color: #ffffff !important;
+  border-color: #0a0a0a !important;
+}
+:root[data-theme="light"] [data-state="today"] .text-current,
+:root[data-theme="light"] [data-state="now"] .text-current { color: #ffffff !important; }
+:root[data-theme="light"] [data-state="today"] .overline,
+:root[data-theme="light"] [data-state="now"] .overline { color: rgba(255,255,255,0.7) !important; }
+
+:root[data-theme="light"] .pulse-marker::after { background: #ffffff !important; }
 
 /* Entrance animation */
 @keyframes slide-in-right {
