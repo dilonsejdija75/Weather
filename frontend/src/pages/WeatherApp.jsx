@@ -174,7 +174,9 @@ export default function WeatherApp() {
       {/* Weather card - right/bottom */}
       {(weather || loading) && (
         <div
-          className="absolute z-30 right-4 sm:right-6 bottom-6 sm:bottom-8 max-w-[calc(100vw-2rem)]"
+          className={`absolute z-30 right-4 sm:right-6 bottom-6 sm:bottom-8 max-w-[calc(100vw-2rem)] transition-transform duration-200 ease-out ${
+            savedOpen ? "md:-translate-x-[330px]" : "translate-x-0"
+          }`}
           style={{ maxHeight: "calc(100vh - 200px)" }}
         >
           <WeatherCard
