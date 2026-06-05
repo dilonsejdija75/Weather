@@ -152,7 +152,11 @@ export default function WeatherMap({ onClickPoint, marker, activeLayers, flyTo }
     const ensureAnimated = (key, framesList, paneName, color) => {
       if (!framesData || !framesList?.length) return;
       const existing = overlayLayersRef.current[key];
-      if (existing) return;
+      if (existing && existing.type === "animated") return;
+      if (existing) {
+        existing.layer.remove();
+        delete overlayLayersRef.current[key];
+      }
       const idx = framesList.length - 1; // start at most-recent frame
       const layer = L.tileLayer(rvUrl(framesData.host, framesList[idx].path, color), {
         opacity: 0.0,
@@ -174,14 +178,18 @@ export default function WeatherMap({ onClickPoint, marker, activeLayers, flyTo }
 
     const ensureStatic = (key, owmName, paneName) => {
       const existing = overlayLayersRef.current[key];
-      if (existing) return;
+      if (existing && existing.type === "static") return;
+      if (existing) {
+        existing.layer.remove();
+        delete overlayLayersRef.current[key];
+      }
       const layer = L.tileLayer(tileUrl(owmName), {
         opacity: 0.0,
         maxZoom: 19,
         pane: paneName,
       });
       layer.addTo(map);
-      requestAnimationFrame(() => layer.setOpacity(0.6));
+      requestAnimationFrame(() => layer.setOpacity(0.7));
       overlayLayersRef.current[key] = { type: "static", layer };
     };
 
@@ -192,15 +200,25 @@ export default function WeatherMap({ onClickPoint, marker, activeLayers, flyTo }
       delete overlayLayersRef.current[key];
     };
 
-    // Precipitation -> RainViewer radar
+    // Precipitation -> RainViewer radar (with OWM fallback if no frames)
     if (activeLayers?.precipitation) {
-      ensureAnimated("precipitation", framesData?.radar, "anim-rain", 2);
+      const radar = framesData?.radar;
+      if (radar?.length) {
+        ensureAnimated("precipitation", radar, "anim-rain", 2);
+      } else {
+        ensureStatic("precipitation", "precipitation_new", "anim-rain");
+      }
     } else {
       remove("precipitation");
     }
-    // Clouds -> RainViewer satellite infrared
+    // Clouds -> RainViewer satellite (fallback to OWM clouds; satellite feed often empty)
     if (activeLayers?.clouds) {
-      ensureAnimated("clouds", framesData?.sat, "anim-clouds", 0);
+      const sat = framesData?.sat;
+      if (sat?.length) {
+        ensureAnimated("clouds", sat, "anim-clouds", 0);
+      } else {
+        ensureStatic("clouds", "clouds_new", "anim-clouds");
+      }
     } else {
       remove("clouds");
     }
