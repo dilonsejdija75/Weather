@@ -3,22 +3,26 @@ import {
   CloudFog, Drop,
 } from "@phosphor-icons/react";
 
-// WMO weather code → { icon, label }
-// https://open-meteo.com/en/docs (weather_code mapping)
-export function wmoMeta(code, isNight = false) {
-  if (code === 0) return { Icon: isNight ? Moon : Sun, label: "Clear" };
-  if (code === 1) return { Icon: isNight ? Moon : Sun, label: "Mostly clear" };
-  if (code === 2) return { Icon: CloudSun, label: "Partly cloudy" };
-  if (code === 3) return { Icon: Cloud, label: "Overcast" };
-  if (code === 45 || code === 48) return { Icon: CloudFog, label: "Fog" };
-  if (code >= 51 && code <= 57) return { Icon: Drop, label: "Drizzle" };
-  if (code >= 61 && code <= 67) return { Icon: CloudRain, label: "Rain" };
-  if (code >= 71 && code <= 77) return { Icon: CloudSnow, label: "Snow" };
-  if (code >= 80 && code <= 82) return { Icon: CloudRain, label: "Showers" };
-  if (code >= 85 && code <= 86) return { Icon: CloudSnow, label: "Snow showers" };
-  if (code === 95) return { Icon: CloudLightning, label: "Thunderstorm" };
-  if (code === 96 || code === 99) return { Icon: CloudLightning, label: "Hail storm" };
-  return { Icon: Cloud, label: "—" };
+// Map OWM icon string (e.g. "10d", "01n") to Phosphor icon + short label.
+// https://openweathermap.org/weather-conditions
+export function owmMeta(icon, fallbackMain) {
+  if (!icon) {
+    if (fallbackMain === "Rain") return { Icon: CloudRain, label: "Rain" };
+    if (fallbackMain === "Snow") return { Icon: CloudSnow, label: "Snow" };
+    return { Icon: Cloud, label: fallbackMain || "—" };
+  }
+  const day = icon.endsWith("d");
+  const c = icon.slice(0, 2);
+  if (c === "01") return { Icon: day ? Sun : Moon, label: "Clear" };
+  if (c === "02") return { Icon: day ? CloudSun : Moon, label: "Few clouds" };
+  if (c === "03") return { Icon: Cloud, label: "Scattered clouds" };
+  if (c === "04") return { Icon: Cloud, label: "Broken clouds" };
+  if (c === "09") return { Icon: CloudRain, label: "Showers" };
+  if (c === "10") return { Icon: CloudRain, label: "Rain" };
+  if (c === "11") return { Icon: CloudLightning, label: "Thunderstorm" };
+  if (c === "13") return { Icon: CloudSnow, label: "Snow" };
+  if (c === "50") return { Icon: CloudFog, label: "Mist" };
+  return { Icon: Cloud, label: fallbackMain || "—" };
 }
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -100,9 +104,7 @@ export default function ForecastPanel({ forecast, loading, units, location }) {
         style={{ scrollbarWidth: "thin" }}
       >
         {hourly.map((h, idx) => {
-          const hour = parseInt((h.time?.split("T")[1] || "00:00").slice(0, 2), 10);
-          const isNight = hour < 6 || hour >= 20;
-          const { Icon, label } = wmoMeta(h.code, isNight);
+          const { Icon, label } = owmMeta(h.icon, h.main);
           const active = idx === currentIdx;
           return (
             <div
@@ -145,7 +147,7 @@ export default function ForecastPanel({ forecast, loading, units, location }) {
           data-testid="daily-strip"
         >
           {daily.map((d, idx) => {
-            const { Icon, label } = wmoMeta(d.code, false);
+            const { Icon, label } = owmMeta(d.icon, d.main);
             const active = idx === 0;
             return (
               <div

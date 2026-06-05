@@ -162,74 +162,157 @@ async def get_full_forecast(
     lon: float = Query(..., ge=-180, le=180),
     units: str = Query("metric", pattern="^(metric|imperial)$"),
 ):
-    """Hourly (next 24h) + Daily (next 7 days) forecast via Open-Meteo (no key)."""
+    """Hourly (next 24h, interpolated from OWM 3-hourly) + Daily (next 5 days).
+
+    Source: OpenWeatherMap /data/2.5/forecast (5-day / 3-hour).
+    Free tier doesn't give true-hourly so we linearly interpolate temp/humidity/wind
+    between the 3-hour samples and carry the nearest weather code per slot.
+    """
+    from collections import Counter
+    from datetime import datetime, timezone as _tz, timedelta
+
     key = f"ff:{round(lat, 3)}:{round(lon, 3)}:{units}"
     if key in weather_cache:
         return weather_cache[key]
 
-    temp_unit = "fahrenheit" if units == "imperial" else "celsius"
-    wind_unit = "mph" if units == "imperial" else "ms"
-    params = {
-        "latitude": lat,
-        "longitude": lon,
-        "hourly": "temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m",
-        "daily": "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum",
-        "forecast_days": 7,
-        "forecast_hours": 24,
-        "timezone": "auto",
-        "temperature_unit": temp_unit,
-        "wind_speed_unit": wind_unit,
-    }
+    url = f"{OWM_BASE}/data/2.5/forecast"
+    params = {"lat": lat, "lon": lon, "appid": OWM_API_KEY, "units": units}
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            r = await client.get(OPEN_METEO_BASE, params=params)
+            r = await client.get(url, params=params)
         if r.status_code != 200:
-            raise HTTPException(status_code=r.status_code, detail="Open-Meteo fetch failed")
+            raise HTTPException(status_code=r.status_code, detail="OWM forecast failed")
         data = r.json()
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Upstream error: {e}")
 
-    hourly = data.get("hourly", {})
-    times = hourly.get("time", [])
-    temps = hourly.get("temperature_2m", [])
-    codes = hourly.get("weather_code", [])
-    hums = hourly.get("relative_humidity_2m", [])
-    winds = hourly.get("wind_speed_10m", [])
-    hourly_list = []
-    for i in range(min(24, len(times))):
-        hourly_list.append({
-            "time": times[i],
-            "temp": temps[i] if i < len(temps) else None,
-            "code": codes[i] if i < len(codes) else 0,
-            "humidity": hums[i] if i < len(hums) else None,
-            "wind": winds[i] if i < len(winds) else None,
+    samples = data.get("list", [])  # 3-hour intervals
+    if not samples:
+        raise HTTPException(status_code=502, detail="Empty forecast from OWM")
+
+    tz_offset = int(data.get("city", {}).get("timezone", 0))  # seconds
+
+    def to_local(dt_unix: int) -> datetime:
+        return datetime.fromtimestamp(dt_unix, tz=_tz.utc) + timedelta(seconds=tz_offset)
+
+    # Build sample series (already sorted by time)
+    series = []
+    for s in samples:
+        series.append({
+            "ts": int(s["dt"]),
+            "temp": float(s["main"]["temp"]),
+            "humidity": int(s["main"]["humidity"]),
+            "wind": float(s.get("wind", {}).get("speed", 0)),
+            "pop": float(s.get("pop", 0)),
+            "weather_id": int(s["weather"][0]["id"]),
+            "icon": s["weather"][0]["icon"],
+            "main": s["weather"][0]["main"],
+            "description": s["weather"][0]["description"],
+            "temp_min": float(s["main"].get("temp_min", s["main"]["temp"])),
+            "temp_max": float(s["main"].get("temp_max", s["main"]["temp"])),
+            "rain_3h": float(s.get("rain", {}).get("3h", 0)) if isinstance(s.get("rain"), dict) else 0,
+            "snow_3h": float(s.get("snow", {}).get("3h", 0)) if isinstance(s.get("snow"), dict) else 0,
         })
 
-    daily = data.get("daily", {})
-    d_times = daily.get("time", [])
-    d_codes = daily.get("weather_code", [])
-    d_max = daily.get("temperature_2m_max", [])
-    d_min = daily.get("temperature_2m_min", [])
-    d_sunrise = daily.get("sunrise", [])
-    d_sunset = daily.get("sunset", [])
-    d_precip = daily.get("precipitation_sum", [])
+    # ============ HOURLY: build 24 truly-hourly entries via linear interpolation ============
+    now_ts = int(datetime.now(tz=_tz.utc).timestamp())
+    # Anchor first hour at the NEXT full hour >= now (local clock alignment)
+    first_local = to_local(now_ts).replace(minute=0, second=0, microsecond=0)
+    # If we've already passed the start of the hour, keep this hour as "NOW"
+    hourly_list = []
+    for h in range(24):
+        target_local = first_local + timedelta(hours=h)
+        target_ts = int((target_local - timedelta(seconds=tz_offset)).timestamp())
+
+        # Find bracketing samples
+        before = None
+        after = None
+        for s in series:
+            if s["ts"] <= target_ts:
+                before = s
+            elif s["ts"] > target_ts and after is None:
+                after = s
+                break
+
+        if before is None and after is None:
+            break
+        if before is None:
+            before = after
+        if after is None:
+            after = before
+
+        if before["ts"] == after["ts"]:
+            frac = 0.0
+        else:
+            frac = (target_ts - before["ts"]) / (after["ts"] - before["ts"])
+            frac = max(0.0, min(1.0, frac))
+
+        def lerp(a, b):
+            return a + (b - a) * frac
+
+        # Use nearest sample for categorical fields (weather id / icon)
+        nearest = before if frac < 0.5 else after
+
+        hourly_list.append({
+            "time": target_local.strftime("%Y-%m-%dT%H:%M"),
+            "dt": target_ts,
+            "temp": round(lerp(before["temp"], after["temp"]), 1),
+            "humidity": round(lerp(before["humidity"], after["humidity"])),
+            "wind": round(lerp(before["wind"], after["wind"]), 1),
+            "pop": round(lerp(before["pop"], after["pop"]), 2),
+            "weather_id": nearest["weather_id"],
+            "icon": nearest["icon"],
+            "main": nearest["main"],
+            "description": nearest["description"],
+        })
+
+    # ============ DAILY: aggregate by local date ============
+    by_day: dict[str, list[dict]] = {}
+    order: list[str] = []
+    for s in series:
+        local = to_local(s["ts"])
+        date_key = local.strftime("%Y-%m-%d")
+        if date_key not in by_day:
+            by_day[date_key] = []
+            order.append(date_key)
+        by_day[date_key].append(s)
+
     daily_list = []
-    for i in range(min(7, len(d_times))):
+    for date_key in order[:7]:  # OWM free gives 5 days; we cap at 7
+        items = by_day[date_key]
+        temps = [it["temp"] for it in items]
+        mins = [it["temp_min"] for it in items]
+        maxs = [it["temp_max"] for it in items]
+        precip = sum(it.get("rain_3h", 0) for it in items)
+
+        # Pick the day-time sample (12:00 local if available) for icon, else most common id
+        midday = None
+        for it in items:
+            if to_local(it["ts"]).hour in (12, 13, 14, 15):
+                midday = it
+                break
+        if midday is None:
+            ids = [it["weather_id"] for it in items]
+            most_id = Counter(ids).most_common(1)[0][0]
+            midday = next(it for it in items if it["weather_id"] == most_id)
+
         daily_list.append({
-            "date": d_times[i],
-            "code": d_codes[i] if i < len(d_codes) else 0,
-            "max": d_max[i] if i < len(d_max) else None,
-            "min": d_min[i] if i < len(d_min) else None,
-            "sunrise": d_sunrise[i] if i < len(d_sunrise) else None,
-            "sunset": d_sunset[i] if i < len(d_sunset) else None,
-            "precip": d_precip[i] if i < len(d_precip) else 0,
+            "date": date_key,
+            "weather_id": midday["weather_id"],
+            "icon": midday["icon"],
+            "main": midday["main"],
+            "description": midday["description"],
+            "max": round(max(maxs + temps), 1),
+            "min": round(min(mins + temps), 1),
+            "precip": round(precip, 1),
         })
 
     result = {
+        "source": "openweathermap",
         "hourly": hourly_list,
         "daily": daily_list,
-        "timezone": data.get("timezone"),
-        "timezone_offset": data.get("utc_offset_seconds", 0),
+        "timezone_offset": tz_offset,
+        "timezone": data.get("city", {}).get("name", ""),
         "units": units,
     }
     weather_cache[key] = result
