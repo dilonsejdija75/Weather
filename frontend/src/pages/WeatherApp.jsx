@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import WeatherMap from "@/components/WeatherMap";
 import SearchBar from "@/components/SearchBar";
 import WeatherCard from "@/components/WeatherCard";
 import LayerToggles from "@/components/LayerToggles";
 import SavedLocationsPanel from "@/components/SavedLocationsPanel";
+import RainOverlay from "@/components/RainOverlay";
 import { fetchWeather, reverseGeocode } from "@/lib/weatherApi";
 import { useSavedLocations } from "@/hooks/useSavedLocations";
 import { BookmarkSimple, CrosshairSimple, Lightning } from "@phosphor-icons/react";
@@ -114,6 +115,20 @@ export default function WeatherApp() {
 
   const markerSaved = marker ? isSaved(marker.lat, marker.lon) : false;
 
+  // Detect rain / drizzle from current weather
+  // OWM weather codes: 2xx thunderstorm, 3xx drizzle, 5xx rain
+  const rainState = useMemo(() => {
+    const id = weather?.weather?.[0]?.id;
+    const main = weather?.weather?.[0]?.main;
+    if (!id && !main) return { active: false, intensity: "rain" };
+    if (id >= 300 && id < 400) return { active: true, intensity: "drizzle" };
+    if (id >= 500 && id < 600) return { active: true, intensity: "rain" };
+    if (id >= 200 && id < 300) return { active: true, intensity: "rain" }; // thunderstorm w/ rain
+    if (main === "Rain") return { active: true, intensity: "rain" };
+    if (main === "Drizzle") return { active: true, intensity: "drizzle" };
+    return { active: false, intensity: "rain" };
+  }, [weather]);
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#050505]">
       <WeatherMap
@@ -122,6 +137,9 @@ export default function WeatherApp() {
         activeLayers={activeLayers}
         flyTo={flyTo}
       />
+
+      {/* Realistic rain particle overlay - activates ONLY for rain / drizzle */}
+      <RainOverlay active={rainState.active} intensity={rainState.intensity} />
 
       {/* Top brand strip */}
       <header className="pointer-events-none absolute top-0 left-0 right-0 z-30 px-4 sm:px-6 pt-4 sm:pt-6 flex items-start justify-between gap-4">
