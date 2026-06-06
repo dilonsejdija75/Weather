@@ -3,7 +3,7 @@ import axios from "axios";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
 
-export const api = axios.create({ baseURL: API, timeout: 12000 });
+export const api = axios.create({ baseURL: API, timeout: 30000 });
 
 export async function fetchWeather(lat, lon, units = "metric") {
   const { data } = await api.get("/weather", { params: { lat, lon, units } });
