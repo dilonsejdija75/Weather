@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import WeatherMap from "@/components/WeatherMap";
 import SearchBar from "@/components/SearchBar";
 import WeatherCard from "@/components/WeatherCard";
-import LayerToggles from "@/components/LayerToggles";
+// import LayerToggles from "@/components/LayerToggles"; // Removed - free tier doesn't support map tiles
 import SavedLocationsPanel from "@/components/SavedLocationsPanel";
 import RainOverlay from "@/components/RainOverlay";
 import ForecastPanel from "@/components/ForecastPanel";
@@ -22,12 +22,12 @@ export default function WeatherApp() {
   const [loading, setLoading] = useState(false);
   const [forecastLoading, setForecastLoading] = useState(false);
   const [units, setUnits] = useState("metric");
-  const [activeLayers, setActiveLayers] = useState({
-    clouds: false,
-    precipitation: false,
-    temp: false,
-    wind: false,
-  });
+  // const [activeLayers, setActiveLayers] = useState({ // Removed - not needed without LayerToggles
+  //   clouds: false,
+  //   precipitation: false,
+  //   temp: false,
+  //   wind: false,
+  // });
   const [savedOpen, setSavedOpen] = useState(false);
   // Bottom panel can be collapsed on mobile to give more room to the map
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -117,8 +117,8 @@ export default function WeatherApp() {
     );
   };
 
-  const toggleLayer = (key) =>
-    setActiveLayers((prev) => ({ ...prev, [key]: !prev[key] }));
+  // const toggleLayer = (key) => // Removed - not needed without LayerToggles
+  //   setActiveLayers((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const markerSaved = marker ? isSaved(marker.lat, marker.lon) : false;
 
@@ -138,6 +138,9 @@ export default function WeatherApp() {
     () => (weather ? { name: weather.name, country: weather.country } : null),
     [weather]
   );
+
+  // Create empty activeLayers object to pass to WeatherMap (all layers disabled)
+  const activeLayers = { clouds: false, precipitation: false, temp: false, wind: false };
 
   return (
     <div className="relative h-screen w-screen overflow-hidden flex flex-col" style={{ background: "var(--bg-base)" }}>
@@ -212,10 +215,7 @@ export default function WeatherApp() {
           <SearchBar onPick={handleSearchPick} />
         </div>
 
-        {/* Layer toggles - bottom-left of map */}
-        <div className="absolute left-3 sm:left-6 bottom-3 sm:bottom-5 z-30">
-          <LayerToggles active={activeLayers} onToggle={toggleLayer} />
-        </div>
+        {/* Layer toggles - REMOVED because free OpenWeatherMap tier doesn't support map tiles */}
 
         {/* Empty-state hint over map */}
         {!weather && !loading && (
